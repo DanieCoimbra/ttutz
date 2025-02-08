@@ -12,8 +12,8 @@ from nltk.stem import WordNetLemmatizer
 from unidecode import unidecode  # Remove acentos
 
 # Baixar recursos do NLTK
-nltk.download('punkt')
-nltk.download('wordnet')
+nltk.download('punkt')#Tokeniza sentenças em palavras.
+nltk.download('wordnet')#Permite a lemmatização, reduzindo palavras à sua forma básica.
 
 lemmatizer = WordNetLemmatizer()
 
@@ -66,7 +66,7 @@ study_content = {
 }
 
 
-# Intenções do chatbot
+# Intenções do chatbot,Define intenções (intents), que representam os diferentes assuntos que o chatbot pode entender.
 intents = {
     "intents": [
         {"tag": "banco de dados", "patterns": ["Me indique um livro de banco de dados", "Sugira algo sobre arquitetura de dados"],
@@ -96,17 +96,17 @@ intents = {
     ]
 }
 
-
-# Normalizar texto
+# Remove acentos e transforma tudo em letras minúsculas.
 def normalize_text(text):
     return unidecode(text.lower())
     
 # Processamento dos dados para treino da IA
+# Cria listas para armazenar palavras e categorias.
 words = []
 classes = []
 documents = []
 ignore_words = ["?", "!", ",", "."]
-
+# Tokeniza as frases em palavras. Remove acentos e caracteres indesejados. Armazena palavras, classes e documentos processados.
 for intent in intents["intents"]:
     for pattern in intent["patterns"]:
         norm_pattern = unidecode(pattern.lower())
@@ -115,11 +115,12 @@ for intent in intents["intents"]:
         documents.append((word_list, unidecode(intent["tag"])))
         if unidecode(intent["tag"]) not in classes:
             classes.append(unidecode(intent["tag"]))
-
+# Lematiza todas as palavras e remove duplicatas
 words = sorted(set([lemmatizer.lemmatize(w) for w in words if w not in ignore_words]))
 classes = sorted(set(classes))
 
 # Criando dados de treinamento
+# Converte frases em vetores binários, associa cada vetor com a classe correta.
 training = []
 output_empty = [0] * len(classes)
 
@@ -128,7 +129,7 @@ for doc in documents:
     output_row = list(output_empty)
     output_row[classes.index(doc[1])] = 1
     training.append([bag, output_row])
-
+# Embaralha os dados para evitar viés no aprendizado, separa as entradas (train_x) e saídas (train_y).
 random.shuffle(training)
 training = np.array(training, dtype=object)
 
@@ -136,18 +137,22 @@ train_x = np.array(list(training[:, 0]))
 train_y = np.array(list(training[:, 1]))
 
 # Criando modelo de IA
-model = Sequential([
-    Dense(128, input_shape=(len(train_x[0]),), activation='relu'),
+model = Sequential([ # Sequential(): Modelo de rede neural.
+    Dense(128, input_shape=(len(train_x[0]),), activation='relu'), # 128 neurônios (ReLU) → Melhora aprendizado
+    Dropout(0.5), # Dropout de 50% → Evita overfitting.
+    Dense(64, activation='relu'), # 64 neurônios (ReLU).
     Dropout(0.5),
-    Dense(64, activation='relu'),
-    Dropout(0.5),
-    Dense(len(train_y[0]), activation='softmax')
+    Dense(len(train_y[0]), activation='softmax') # Softmax na saída → Classificação das intenções.
 ])
 
+# Compilação com categorical_crossentropy (para classificação), Treinamento por 200 vezes.
 model.compile(loss='categorical_crossentropy', optimizer=Adam(learning_rate=0.01), metrics=['accuracy'])
 model.fit(train_x, train_y, epochs=200, batch_size=5, verbose=1)
 
 # Função para gerar respostas do chatbot
+# Converte a entrada do usuário em um vetor de palavras.
+# Usa a rede neural para prever a intenção.
+# Retorna uma resposta com pelo menos 70% de certeza.
 def get_response(user_input):
     user_input = unidecode(user_input.lower())
     bag = [1 if w in [lemmatizer.lemmatize(word) for word in nltk.word_tokenize(user_input)] else 0 for w in words]
@@ -161,6 +166,8 @@ def get_response(user_input):
     return "Desculpe, não entendi. Pode reformular sua pergunta?"
     
 # Função para gerar a rotina de estudos
+# Distribui horas de estudo para cada disciplina ao longo das semanas.
+# Retorna um cronograma personalizado.
 def generate_study_plan(available_hours, subjects, weeks):
     print(f"\n📢 Gerando plano de estudos para as matérias: {subjects}\n")
 
@@ -203,6 +210,7 @@ def generate_study_plan(available_hours, subjects, weeks):
     return study_plan
 
 # Chatbot interativo
+# O chatbot aceita perguntas ou gera um plano de estudos.
 def chatbot():
     print("\nDigite 'rotina' para criar um plano de estudos ou faça uma pergunta sobre matérias!")
     while True:
